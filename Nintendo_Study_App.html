@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Nintendo Study Cards</title>
+  <style>
+    :root {
+      --bg: #0f1115;
+      --panel: #171a21;
+      --text: #e8edf2;
+      --muted: #aeb6c3;
+      --accent: #4ad;
+      --good: #3cc86b;
+      --bad: #f25c54;
+      --star: #f5c518;
+      --border: #2a2f3a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    }
+    header {
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
+    }
+    h1 { margin: 0 0 6px 0; font-size: 20px; }
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+    }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 6px; background: #1f2330; color: var(--muted); margin-right: 6px; }
+    select, input[type="text"] {
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #11141a;
+      color: var(--text);
+      outline: none;
+    }
+    button {
+      background: #11141a;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+    button:hover { border-color: var(--accent); }
+    .accent { background: var(--accent); color: #06121f; border: none; }
+    .good { background: var(--good); color: #041a0d; border: none; }
+    .bad { background: var(--bad); color: #2b0a0a; border: none; }
+    .starred { color: var(--star); }
+    main {
+      max-width: 1000px;
+      margin: 18px auto;
+      padding: 0 16px 40px;
+    }
+    .card {
+      margin-top: 16px;
+      border-radius: 16px;
+      background: linear-gradient(180deg, #151923, #10131a);
+      border: 1px solid var(--border);
+      min-height: 220px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: 20px;
+      position: relative;
+      user-select: none;
+    }
+    .card .face {
+      max-width: 90%;
+      font-size: clamp(18px, 2.3vw, 26px);
+      line-height: 1.35;
+    }
+    .pillbar {
+      display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px;
+    }
+    .row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+    .divider { height: 1px; background: var(--border); margin: 14px 0; }
+    .progress {
+      display: flex; gap: 10px; flex-wrap: wrap; font-size: 13px; color: var(--muted);
+    }
+    .progress b { color: var(--text); }
+    .mc-options {
+      display: grid; gap: 10px; margin-top: 14px;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    }
+    .opt {
+      padding: 12px; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; background:#12151b;
+    }
+    .opt.correct { border-color: var(--good); }
+    .opt.wrong { border-color: var(--bad); }
+    footer { text-align:center; color: var(--muted); padding: 20px; }
+    .tiny { font-size: 12px; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Nintendo Study Cards</h1>
+    <div class="controls">
+      <div class="panel">
+        <div class="pillbar">
+          <span class="badge">Deck</span>
+          <label><input type="checkbox" id="deck-standard" checked> Standard (100)</label>
+          <label><input type="checkbox" id="deck-hard" checked> Hard Mode (48)</label>
+        </div>
+        <div class="pillbar">
+          <span class="badge">Mode</span>
+          <label><input type="radio" name="mode" value="flash" checked> Flashcards</label>
+          <label><input type="radio" name="mode" value="mc"> Multiple Choice</label>
+        </div>
+        <div class="row">
+          <button id="btn-shuffle" class="accent">Shuffle</button>
+          <button id="btn-reset">Reset Progress</button>
+          <button id="btn-export">Export Progress</button>
+          <input type="file" id="import-file" accept="application/json" style="display:none" />
+          <button id="btn-import">Import Progress</button>
+        </div>
+        <div class="row">
+          <input type="text" id="search" placeholder="Search keywords (e.g., Zelda, Rumble Pak, 2006)">
+        </div>
+        <div class="progress" id="progress"></div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="card" id="card">
+      <div class="face" id="face">Loading…</div>
+    </div>
+
+    <div id="mc" style="display:none">
+      <div class="mc-options" id="options"></div>
+    </div>
+
+    <div class="row">
+      <button id="prev">◀ Prev</button>
+      <button id="flip">Flip</button>
+      <button id="next">Next ▶</button>
+      <button id="mark-known" class="good">Mark Known ✓</button>
+      <button id="mark-unknown" class="bad">Mark Unknown ✕</button>
+      <button id="toggle-star">☆ Star</button>
+      <span id="pos" class="tiny"></span>
+    </div>
+
+    <div class="divider"></div>
+    <p class="tiny">Tips: Space = Flip, ←/→ = Prev/Next, K = Known, X = Unknown, S = Star, F = Switch mode.</p>
+  </main>
+
+  <footer>
+    <div class="tiny">Progress is saved in your browser (localStorage).</div>
+  </footer>
+
+  <script>
+    const DATA = {"standard": [{"id": "std-1-91a0d482", "q": "What year was the NES released in North America?", "a": "1985", "deck": "standard"}, {"id": "std-2-29172217", "q": "What is Nintendo\u2019s best-selling console?", "a": "Nintendo DS (over 154 million)", "deck": "standard"}, {"id": "std-3-0853354d", "q": "What item instantly KOs players at high damage?", "a": "Home-Run Bat", "deck": "standard"}, {"id": "std-4-9f1eb51b", "q": "What was the first Nintendo console to use discs?", "a": "GameCube", "deck": "standard"}, {"id": "std-5-5eca4e8b", "q": "What year was the Wii released?", "a": "2006", "deck": "standard"}, {"id": "std-6-40aa46d7", "q": "What is Isabelle\u2019s role in Animal Crossing: New Leaf?", "a": "Town secretary/assistant", "deck": "standard"}, {"id": "std-7-311664d7", "q": "Who is Kirby\u2019s main rival, often wielding a sword?", "a": "Meta Knight", "deck": "standard"}, {"id": "std-8-df2b662d", "q": "What was the Virtual Boy known for?", "a": "3D visuals but commercial failure", "deck": "standard"}, {"id": "std-9-f0f7a076", "q": "What type of animal is Donkey Kong?", "a": "Gorilla", "deck": "standard"}, {"id": "std-10-ac1541d5", "q": "What is the subtitle of Metroid Prime 3?", "a": "Corruption", "deck": "standard"}, {"id": "std-11-41103ba9", "q": "In Ocarina of Time, what instrument does Link play?", "a": "Ocarina", "deck": "standard"}, {"id": "std-12-3926ece2", "q": "What is the name of the yellow Kirby friend?", "a": "Keeby (from Kirby\u2019s Dream Course)", "deck": "standard"}, {"id": "std-13-0a491864", "q": "What is the name of Mario\u2019s doctor persona in puzzle games?", "a": "Dr. Mario", "deck": "standard"}, {"id": "std-14-9fe29076", "q": "What was Nintendo\u2019s first product?", "a": "Hanafuda playing cards", "deck": "standard"}, {"id": "std-15-41a49a3b", "q": "What is the name of the cat who helps you reset your save?", "a": "Rover", "deck": "standard"}, {"id": "std-16-4e8b3a11", "q": "What was Mario\u2019s original name in Donkey Kong (1981)?", "a": "Jumpman", "deck": "standard"}, {"id": "std-17-5239a9cc", "q": "Who is Mario\u2019s twin brother?", "a": "Luigi", "deck": "standard"}, {"id": "std-18-a78b578e", "q": "Who is Pok\u00e9mon #001 in the Pok\u00e9dex?", "a": "Bulbasaur", "deck": "standard"}, {"id": "std-19-a2fcf39b", "q": "What is the name of Link\u2019s talking boat in The Wind Waker?", "a": "King of Red Lions", "deck": "standard"}, {"id": "std-20-0634f1d1", "q": "What handheld console debuted Animal Crossing: Wild World?", "a": "Nintendo DS", "deck": "standard"}, {"id": "std-21-f7d5f6ef", "q": "What is the planet Kirby lives on?", "a": "Planet Popstar", "deck": "standard"}, {"id": "std-22-52ee1ffa", "q": "Who is Ash\u2019s rival in the original anime?", "a": "Gary Oak", "deck": "standard"}, {"id": "std-23-ba317ebf", "q": "Who is the greedy penguin-like villain in Kirby?", "a": "King Dedede", "deck": "standard"}, {"id": "std-24-6705a549", "q": "What type of bird is Brewster?", "a": "Pigeon", "deck": "standard"}, {"id": "std-25-c2abe70d", "q": "What 1999 game starred Donkey Kong playing bongos?", "a": "Donkey Kong 64 (also Donkey Konga in 2003)", "deck": "standard"}, {"id": "std-26-f7e9f555", "q": "What is Kirby\u2019s signature ability?", "a": "Inhaling enemies and copying abilities", "deck": "standard"}, {"id": "std-27-a958d65b", "q": "What is the name of Samus\u2019s iconic suit?", "a": "Power Suit", "deck": "standard"}, {"id": "std-28-8a5a771c", "q": "What game introduced Yoshi?", "a": "Super Mario World (SNES, 1990)", "deck": "standard"}, {"id": "std-29-0f21c7a3", "q": "Who is the recurring villain in Metroid besides Metroids?", "a": "Ridley", "deck": "standard"}, {"id": "std-30-73b9e5ee", "q": "What is the name of Link\u2019s horse in Ocarina of Time?", "a": "Epona", "deck": "standard"}, {"id": "std-31-cac85ed0", "q": "Who is Donkey Kong\u2019s grandfatherly figure?", "a": "Cranky Kong", "deck": "standard"}, {"id": "std-32-2710352c", "q": "What is the name of the parasitic organisms Samus fights?", "a": "Metroids", "deck": "standard"}, {"id": "std-33-6f3022ca", "q": "What is the name of the moon-threatening game in the Zelda series?", "a": "Majora\u2019s Mask", "deck": "standard"}, {"id": "std-34-1ad32bf1", "q": "What Pok\u00e9mon is known as the Mouse Pok\u00e9mon and mascot?", "a": "Pikachu", "deck": "standard"}, {"id": "std-35-337110d7", "q": "What year was the first Smash Bros. released?", "a": "1999", "deck": "standard"}, {"id": "std-36-5eaf27f2", "q": "Which Pok\u00e9mon evolves into Gyarados?", "a": "Magikarp", "deck": "standard"}, {"id": "std-37-1318f818", "q": "What is the currency in Animal Crossing?", "a": "Bells", "deck": "standard"}, {"id": "std-38-735013eb", "q": "What is the name of Samus\u2019s gunship AI companion?", "a": "Adam", "deck": "standard"}, {"id": "std-39-de0f9fee", "q": "Which Pok\u00e9mon are on the covers of Red and Blue versions?", "a": "Charizard and Blastoise", "deck": "standard"}, {"id": "std-40-9d7878c2", "q": "What is Nintendo\u2019s best-selling game?", "a": "Wii Sports (over 82 million)", "deck": "standard"}, {"id": "std-41-cb4f050d", "q": "What food is Donkey Kong obsessed with?", "a": "Bananas", "deck": "standard"}, {"id": "std-42-c5d5c4f1", "q": "What item do you shake from trees?", "a": "Fruit (and sometimes bees!)", "deck": "standard"}, {"id": "std-43-e3636669", "q": "Who was the original damsel in distress in Donkey Kong?", "a": "Pauline", "deck": "standard"}, {"id": "std-44-0052addf", "q": "What year was the Nintendo Switch released?", "a": "2017", "deck": "standard"}, {"id": "std-45-22c9b90e", "q": "Who is the princess that Link often rescues?", "a": "Princess Zelda", "deck": "standard"}, {"id": "std-46-127751c5", "q": "What was the first console Donkey Kong Country released on?", "a": "Super Nintendo (SNES)", "deck": "standard"}, {"id": "std-47-4bee18b8", "q": "Who is the crocodile enemy leader in Donkey Kong Country?", "a": "King K. Rool", "deck": "standard"}, {"id": "std-48-959d4988", "q": "Name three non-Nintendo Smash characters.", "a": "Sonic, Solid Snake, Cloud Strife", "deck": "standard"}, {"id": "std-49-fbfd0b91", "q": "Which Pok\u00e9mon is playable in Smash Ultimate?", "a": "Pikachu, Jigglypuff, Mewtwo, Lucario, etc.", "deck": "standard"}, {"id": "std-50-5864264d", "q": "Who helps you with fossils in Animal Crossing?", "a": "Blathers the Owl", "deck": "standard"}, {"id": "std-51-cde05514", "q": "What year was Super Mario 64 released?", "a": "1996", "deck": "standard"}, {"id": "std-52-110fe6dd", "q": "What item is used to evolve Eevee into Vaporeon?", "a": "Water Stone", "deck": "standard"}, {"id": "std-53-d80c2657", "q": "What is Zelda\u2019s alter ego in Ocarina of Time?", "a": "Sheik", "deck": "standard"}, {"id": "std-54-646fc12e", "q": "What was Kirby\u2019s first game?", "a": "Kirby\u2019s Dream Land (Game Boy)", "deck": "standard"}, {"id": "std-55-1e63b4a8", "q": "What is the name of Kirby\u2019s Smash Final Smash move?", "a": "Cook Kirby / Ultra Sword (varies by game)", "deck": "standard"}, {"id": "std-56-d3ea8899", "q": "Which Kong uses a jetpack?", "a": "Dixie Kong\u2019s cousin, Funky Kong", "deck": "standard"}, {"id": "std-57-680dc257", "q": "Who was the final DLC fighter in Smash Ultimate?", "a": "Sora", "deck": "standard"}, {"id": "std-58-22649b53", "q": "Which Mario Kart game first introduced online play?", "a": "Mario Kart DS", "deck": "standard"}, {"id": "std-59-4af31cc7", "q": "What animal is Tom Nook?", "a": "Raccoon (Tanuki)", "deck": "standard"}, {"id": "std-60-cb44238f", "q": "What company developed Metroid Prime?", "a": "Retro Studios", "deck": "standard"}, {"id": "std-61-36d0b810", "q": "What year was the first Metroid game released?", "a": "1986", "deck": "standard"}, {"id": "std-62-d0576860", "q": "What character is known for shouting 'Falcon Punch'?", "a": "Captain Falcon", "deck": "standard"}, {"id": "std-63-409ef70f", "q": "What is the name of the galactic police force Samus sometimes works with?", "a": "Galactic Federation", "deck": "standard"}, {"id": "std-64-51ac600f", "q": "What game introduced the Master Sword?", "a": "A Link to the Past", "deck": "standard"}, {"id": "std-65-ec72152d", "q": "What color tie does Donkey Kong wear?", "a": "Red", "deck": "standard"}, {"id": "std-66-e4f52f18", "q": "What was Nintendo\u2019s first handheld console?", "a": "Game Boy", "deck": "standard"}, {"id": "std-67-fc7eaa50", "q": "What three forces make up the Triforce?", "a": "Power, Wisdom, Courage", "deck": "standard"}, {"id": "std-68-3003b4c0", "q": "What day of the week does Redd sell art?", "a": "Random, usually once a week", "deck": "standard"}, {"id": "std-69-d8fbb9cc", "q": "Which Pok\u00e9mon has the National Pok\u00e9dex number #150?", "a": "Mewtwo", "deck": "standard"}, {"id": "std-70-170dd2bf", "q": "Who is the creator of the Super Smash Bros. series?", "a": "Masahiro Sakurai", "deck": "standard"}, {"id": "std-71-4ee71355", "q": "Who is the main protagonist of the Metroid series?", "a": "Samus Aran", "deck": "standard"}, {"id": "std-72-59d5a6b4", "q": "What is the desert-dwelling race in Zelda?", "a": "Gerudo", "deck": "standard"}, {"id": "std-73-93c487f6", "q": "What console was the first Smash Bros. on?", "a": "Nintendo 64", "deck": "standard"}, {"id": "std-74-4df6459a", "q": "Who is Mario\u2019s dinosaur companion?", "a": "Yoshi", "deck": "standard"}, {"id": "std-75-ac5e0e2c", "q": "What is Bowser\u2019s son\u2019s name?", "a": "Bowser Jr.", "deck": "standard"}, {"id": "std-76-48cb4903", "q": "What year was the first Kirby game released?", "a": "1992", "deck": "standard"}, {"id": "std-77-e2451e80", "q": "What color is Kirby?", "a": "Pink", "deck": "standard"}, {"id": "std-78-910622a3", "q": "What controller introduced an analog stick?", "a": "Nintendo 64 controller", "deck": "standard"}, {"id": "std-79-0c77e010", "q": "Who is the recurring villain of the Zelda series?", "a": "Ganon/Ganondorf", "deck": "standard"}, {"id": "std-80-4e09a01a", "q": "What type is super effective against Water?", "a": "Electric and Grass", "deck": "standard"}, {"id": "std-81-69205199", "q": "What power-up turns Mario into Fire Mario?", "a": "Fire Flower", "deck": "standard"}, {"id": "std-82-f4444692", "q": "What animal is Donkey Kong\u2019s sidekick in Donkey Kong Country?", "a": "Diddy Kong", "deck": "standard"}, {"id": "std-83-c8775afb", "q": "What is the name of the guitar-playing dog?", "a": "K.K. Slider", "deck": "standard"}, {"id": "std-84-efa5d4db", "q": "What Nintendo series did Kirby appear in besides his own?", "a": "Super Smash Bros.", "deck": "standard"}, {"id": "std-85-b168c4fc", "q": "What ability does Kirby get from inhaling a sword enemy?", "a": "Sword", "deck": "standard"}, {"id": "std-86-ac61c7f4", "q": "What Pok\u00e9mon is known as the Legendary Bird of Ice?", "a": "Articuno", "deck": "standard"}, {"id": "std-87-fabe9eb1", "q": "Which Smash entry first introduced online play?", "a": "Super Smash Bros. Brawl", "deck": "standard"}, {"id": "std-88-de763546", "q": "What color is Luigi\u2019s hat?", "a": "Green", "deck": "standard"}, {"id": "std-89-83004007", "q": "What type was missing in Red/Blue but added later?", "a": "Dark and Steel", "deck": "standard"}, {"id": "std-90-65e11d50", "q": "What ability allows Samus to roll into a ball?", "a": "Morph Ball", "deck": "standard"}, {"id": "std-91-0ead68e3", "q": "What is Fox McCloud\u2019s team called in the Star Fox series?", "a": "Star Fox", "deck": "standard"}, {"id": "std-92-fce7543f", "q": "What is Captain Falcon\u2019s signature racing machine in F-Zero?", "a": "Blue Falcon", "deck": "standard"}, {"id": "std-93-9c1a8c70", "q": "In Splatoon, what is the name of the cat who judges Turf War battles?", "a": "Judd", "deck": "standard"}, {"id": "std-94-9dcaedae", "q": "Which Pikmin type is immune to electricity?", "a": "Yellow Pikmin", "deck": "standard"}, {"id": "std-95-27f59c89", "q": "Who is the protagonist of Kid Icarus?", "a": "Pit", "deck": "standard"}, {"id": "std-96-f7e18edd", "q": "In EarthBound, what is the name of the first town?", "a": "Onett", "deck": "standard"}, {"id": "std-97-4103f397", "q": "In Fire Emblem, what is the classic weapon triangle?", "a": "Sword > Axe > Lance > Sword", "deck": "standard"}, {"id": "std-98-34ecccd3", "q": "What is the name of the red blade wielded by Shulk in Xenoblade Chronicles?", "a": "Monado", "deck": "standard"}, {"id": "std-99-4a3fd538", "q": "Which studio develops Advance Wars for Nintendo?", "a": "Intelligent Systems", "deck": "standard"}, {"id": "std-100-68f17722", "q": "Who created the Game & Watch and popularized Nintendo\u2019s \u2018lateral thinking with withered technology\u2019?", "a": "Gunpei Yokoi", "deck": "standard"}], "hard": [{"id": "hard-1-adf9522d", "q": "Who founded Nintendo, and in what year?", "a": "Fusajiro Yamauchi, in 1889 (as a Hanafuda card company).", "deck": "hard"}, {"id": "hard-2-03bc698d", "q": "What was Nintendo\u2019s first dedicated home console line (before the Famicom/NES)?", "a": "The Color TV-Game series (1977\u20131980).", "deck": "hard"}, {"id": "hard-3-1859516c", "q": "Name the two NES games that used the R.O.B. accessory.", "a": "Gyromite and Stack-Up.", "deck": "hard"}, {"id": "hard-4-0bae9cbc", "q": "What Japan-only SNES add-on delivered games and events by satellite broadcast?", "a": "The Satellaview (with St.GIGA).", "deck": "hard"}, {"id": "hard-5-37a00c93", "q": "What Japan-only rewrite service let you download Super Famicom and Game Boy games to flash cartridges at kiosks?", "a": "Nintendo Power (the cartridge service, 1997\u20132007).", "deck": "hard"}, {"id": "hard-6-1cb3b321", "q": "What online service powered the Nintendo 64\u2019s 64DD add-on in Japan?", "a": "Randnet.", "deck": "hard"}, {"id": "hard-7-5f1dd8ca", "q": "Which N64 game was famously bundled with the Rumble Pak at launch?", "a": "Star Fox 64 (1997).", "deck": "hard"}, {"id": "hard-8-42dc24bf", "q": "Which enhancement chip powered Star Fox (1993), and which revision powered Yoshi\u2019s Island (1995)?", "a": "Super FX for Star Fox; Super FX 2 (GSU-2) for Yoshi\u2019s Island.", "deck": "hard"}, {"id": "hard-9-8df78007", "q": "What unreleased add-on collaboration between Nintendo and Sony produced the prototype nicknamed the \u2018Nintendo PlayStation\u2019?", "a": "The Super NES CD-ROM (SNES-CD) project.", "deck": "hard"}, {"id": "hard-10-6efe1d0d", "q": "Which Game Boy accessory held a Guinness record for being the smallest digital camera at the time?", "a": "The Game Boy Camera.", "deck": "hard"}, {"id": "hard-11-614dd95c", "q": "What fishing gadget-turned-Game Boy accessory was released by Bandai in Japan in 1998?", "a": "The Game Boy Pocket Sonar.", "deck": "hard"}, {"id": "hard-12-436ce25e", "q": "What famous glitch in Super Mario Bros. lets you access a looping water level dubbed World -1?", "a": "The \u2018Minus World\u2019 glitch.", "deck": "hard"}, {"id": "hard-13-9ba423f2", "q": "In which game did the Spiny (Blue) Shell first appear in Mario Kart?", "a": "Mario Kart 64 (1996/97).", "deck": "hard"}, {"id": "hard-14-9df8e32a", "q": "According to a 1993 Nintendo Character Guide, what tongue-in-cheek \u2018full name\u2019 was once given to Yoshi?", "a": "\u201cT. Yoshisaur Munchakoopas.\u201d", "deck": "hard"}, {"id": "hard-15-d073756c", "q": "Which SNES platformer used the Super FX 2 primarily for advanced sprite scaling and stretching (not polygons)?", "a": "Super Mario World 2: Yoshi\u2019s Island (1995).", "deck": "hard"}, {"id": "hard-16-5551c980", "q": "Which N64 platformer opens with the infamous \u2018DK Rap,\u2019 composed by Grant Kirkhope?", "a": "Donkey Kong 64 (1999).", "deck": "hard"}, {"id": "hard-17-6d595071", "q": "In Donkey Kong Country 2, what special world do Kremkoins unlock?", "a": "The Lost World (via Klubba\u2019s Kiosks).", "deck": "hard"}, {"id": "hard-18-eacba8ca", "q": "What mouse-compatible SNES title from 1992 popularized an in-game music composer and the \u2018Gnat Attack\u2019 mini-game?", "a": "Mario Paint.", "deck": "hard"}, {"id": "hard-19-f8909edd", "q": "Which handheld title marks Wario\u2019s first appearance?", "a": "Super Mario Land 2: 6 Golden Coins (1992).", "deck": "hard"}, {"id": "hard-20-807a3e59", "q": "What Square-developed SNES RPG teamed up Mario with Mallow and Geno?", "a": "Super Mario RPG: Legend of the Seven Stars (1996).", "deck": "hard"}, {"id": "hard-21-017fac51", "q": "What N64 RPG began life as \u2018Super Mario RPG 2\u2019 before becoming a new series?", "a": "Paper Mario (originally planned as Super Mario RPG 2 on 64DD).", "deck": "hard"}, {"id": "hard-22-f5581e81", "q": "What hidden musical signature by composer Kazumi Totaka appears across many Nintendo games?", "a": "\u2018Totaka\u2019s Song.\u2019", "deck": "hard"}, {"id": "hard-23-4f86cb36", "q": "How many Korok seeds are in The Legend of Zelda: Breath of the Wild?", "a": "900.", "deck": "hard"}, {"id": "hard-24-953f310e", "q": "What feature was added in The Wind Waker HD (2013) to speed sailing?", "a": "The Swift Sail.", "deck": "hard"}, {"id": "hard-25-7612a3ad", "q": "How do you unlock the Second Quest in the original The Legend of Zelda (NES)?", "a": "Start a new file named \u201cZELDA.\u201d", "deck": "hard"}, {"id": "hard-26-3ec1c15f", "q": "In the original game\u2019s Second Quest, what Easter egg connects the dungeon layouts?", "a": "Their shapes collectively spell \u201cZELDA.\u201d", "deck": "hard"}, {"id": "hard-27-f84e7855", "q": "In which Zelda game did the Master Sword first appear?", "a": "The Legend of Zelda: A Link to the Past (1991 JP/1992 NA).", "deck": "hard"}, {"id": "hard-28-6249530d", "q": "Which game introduced Tingle to the series?", "a": "The Legend of Zelda: Majora\u2019s Mask (2000).", "deck": "hard"}, {"id": "hard-29-a4f7ee8b", "q": "What was the chance to encounter a Shiny Pok\u00e9mon in Generations II\u2013V, and how was it changed from Generation VI onward?", "a": "1 in 8,192 originally; 1 in 4,096 from Gen VI onward (before modifiers).", "deck": "hard"}, {"id": "hard-30-c4d12ca9", "q": "What notorious glitch Pok\u00e9mon in Red/Blue can corrupt your Hall of Fame data and duplicate items?", "a": "MissingNo.", "deck": "hard"}, {"id": "hard-31-958f11b1", "q": "Which generation split the \u2018Special\u2019 stat into Special Attack and Special Defense?", "a": "Generation II (Gold/Silver).", "deck": "hard"}, {"id": "hard-32-e471d933", "q": "In which generation was the Fairy type introduced?", "a": "Generation VI (Pok\u00e9mon X and Y, 2013).", "deck": "hard"}, {"id": "hard-33-82b39772", "q": "On what planet does Metroid II: Return of Samus take place?", "a": "SR388.", "deck": "hard"}, {"id": "hard-34-4cae5f03", "q": "What parasitic life-form drives the plot of Metroid Fusion (and returns in Metroid Dread)?", "a": "The X Parasite.", "deck": "hard"}, {"id": "hard-35-5e6751bd", "q": "What mysterious substance corrupts life in the Metroid Prime trilogy?", "a": "Phazon.", "deck": "hard"}, {"id": "hard-36-52bfd48e", "q": "What ancient bird-like species raised Samus and built much of Metroid\u2019s technology and lore?", "a": "The Chozo.", "deck": "hard"}, {"id": "hard-37-702ad2a8", "q": "What advanced movement tech in Super Smash Bros. Melee lets characters slide by air-dodging into the ground?", "a": "Wavedashing.", "deck": "hard"}, {"id": "hard-38-e32eeb9e", "q": "Who was announced as the final DLC fighter for Super Smash Bros. Ultimate in 2021?", "a": "Sora (Kingdom Hearts).", "deck": "hard"}, {"id": "hard-39-bc65ab4d", "q": "Approximately how many unique fighters are on the Super Smash Bros. Ultimate roster (including Echo Fighters/DLC)?", "a": "Eighty-nine.", "deck": "hard"}, {"id": "hard-40-c9963e31", "q": "What was Animal Crossing called on the Nintendo 64 in Japan before its GameCube release?", "a": "D\u014dbutsu no Mori (Animal Forest).", "deck": "hard"}, {"id": "hard-41-3ca2e4e8", "q": "K.K. Slider\u2019s Japanese name \u2018Totakeke\u2019 is a nod to which Nintendo composer?", "a": "Kazumi Totaka.", "deck": "hard"}, {"id": "hard-42-e762ae3f", "q": "Who sells turnips in Animal Crossing: New Horizons (replacing Joan from earlier games)?", "a": "Daisy Mae.", "deck": "hard"}, {"id": "hard-43-84c238ec", "q": "What year was Mother 3 released\u2014and in what region(s)?", "a": "2006, Japan-only.", "deck": "hard"}, {"id": "hard-44-01d9a4bd", "q": "Which NES boxing classic originally featured Mike Tyson but later replaced him with \u2018Mr. Dream\u2019?", "a": "Punch-Out!! (Mike Tyson\u2019s Punch-Out!! -> Punch-Out!! featuring Mr. Dream, 1990).", "deck": "hard"}, {"id": "hard-45-3088f225", "q": "What canceled SNES sequel finally saw an official release on the SNES Classic Edition in 2017 (and later on Switch Online)?", "a": "Star Fox 2.", "deck": "hard"}, {"id": "hard-46-d90c3554", "q": "When did Fire Emblem first get an official Western release?", "a": "2003 (Fire Emblem on Game Boy Advance).", "deck": "hard"}, {"id": "hard-47-0719f01c", "q": "What strategy series began in Japan as Famicom Wars (1988) before becoming Advance Wars in the West?", "a": "The Wars/Advance Wars series (by Intelligent Systems).", "deck": "hard"}, {"id": "hard-48-9e017d3b", "q": "Which Wii game\u2019s title was originally announced as \u2018Monado: Beginning of the World\u2019 before being renamed to honor director Tetsuya Takahashi?", "a": "Xenoblade Chronicles.", "deck": "hard"}]};
+    // Build master deck from selection
+    let useStandard = true;
+    let useHard = true;
+    let mode = 'flash';
+    let searchTerm = '';
+    let deck = [];
+    let idx = 0;
+    let showAnswer = false;
+
+    // Progress structure: { id: { known: bool|null, star: bool } }
+    const STORAGE_KEY = 'nintendoStudyProgress_v1';
+    function loadProgress() {
+      try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch (e) { return {}; }
+    }
+    function saveProgress(p) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(p));
+    }
+    let PROG = loadProgress();
+
+    function getFilteredDeck() {
+      const a = [];
+      if (useStandard) a.push(...DATA.standard);
+      if (useHard) a.push(...DATA.hard);
+      let out = a;
+      if (searchTerm.trim()) {
+        const t = searchTerm.toLowerCase();
+        out = out.filter(item => (item.q + ' ' + item.a).toLowerCase().includes(t));
+      }
+      return out;
+    }
+
+    function shuffle(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    function rebuildDeck(shuf=false) {
+      deck = getFilteredDeck();
+      if (shuf) shuffle(deck);
+      idx = Math.min(idx, Math.max(0, deck.length - 1));
+      showAnswer = false;
+      render();
+      updateProgressBar();
+    }
+
+    function render() {
+      const face = document.getElementById('face');
+      const pos = document.getElementById('pos');
+      const card = deck[idx];
+      if (!card) { face.textContent = 'No cards match your filters.'; pos.textContent=''; return; }
+      const p = PROG[card.id] || {};
+      const star = p.star ? '★' : '☆';
+      if (mode === 'flash') {
+        document.getElementById('mc').style.display = 'none';
+        face.innerHTML = showAnswer ? `<b>Answer:</b> ${card.a}` : card.q;
+      } else {
+        // MC mode
+        document.getElementById('mc').style.display = 'block';
+        // Build options
+        const optionsEl = document.getElementById('options');
+        optionsEl.innerHTML = '';
+        const correct = card.a;
+        const pool = deck.map(d => d.a).filter(a => a !== correct);
+        const choices = [correct];
+        while (choices.length < 4 && pool.length) {
+          const r = pool.splice(Math.floor(Math.random()*pool.length), 1)[0];
+          if (!choices.includes(r)) choices.push(r);
+        }
+        shuffle(choices);
+        // Show question
+        face.innerHTML = `<b>Q:</b> ${card.q}`;
+        choices.forEach(choice => {
+          const div = document.createElement('div');
+          div.className = 'opt';
+          div.textContent = choice;
+          div.onclick = () => {
+            if (choice === correct) div.classList.add('correct'); else div.classList.add('wrong');
+          };
+          optionsEl.appendChild(div);
+        });
+      }
+      pos.textContent = `${idx+1} / ${deck.length} ${p.star ? '★' : ''}`;
+      document.getElementById('toggle-star').textContent = (p.star ? '★ Unstar' : '☆ Star');
+    }
+
+    function updateProgressBar() {
+      const total = deck.length;
+      let known = 0, unknown = 0, starred = 0;
+      deck.forEach(d => {
+        const p = PROG[d.id];
+        if (!p) return;
+        if (p.known === true) known++;
+        if (p.known === false) unknown++;
+        if (p.star) starred++;
+      });
+      const pr = document.getElementById('progress');
+      pr.innerHTML = `
+        <span><b>${total}</b> cards</span>
+        <span>Known: <b style="color:var(--good)">${known}</b></span>
+        <span>Unknown: <b style="color:var(--bad)">${unknown}</b></span>
+        <span>Starred: <b style="color:var(--star)">${starred}</b></span>
+      `;
+    }
+
+    // Controls
+    document.getElementById('deck-standard').addEventListener('change', (e) => { useStandard = e.target.checked; rebuildDeck(); });
+    document.getElementById('deck-hard').addEventListener('change', (e) => { useHard = e.target.checked; rebuildDeck(); });
+    document.querySelectorAll('input[name="mode"]').forEach(r => r.addEventListener('change', e => { mode = e.target.value; showAnswer=false; render(); }));
+    document.getElementById('search').addEventListener('input', (e) => { searchTerm = e.target.value; rebuildDeck(); });
+
+    document.getElementById('btn-shuffle').onclick = () => rebuildDeck(true);
+    document.getElementById('btn-reset').onclick = () => {
+      if (confirm('Reset progress for all cards currently loaded?')) {
+        deck.forEach(d => delete PROG[d.id]);
+        saveProgress(PROG);
+        updateProgressBar(); render();
+      }
+    };
+    document.getElementById('btn-export').onclick = () => {
+      const blob = new Blob([JSON.stringify(PROG, null, 2)], {type:'application/json'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'nintendo-study-progress.json';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    };
+    document.getElementById('btn-import').onclick = () => document.getElementById('import-file').click();
+    document.getElementById('import-file').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const data = JSON.parse(reader.result);
+          if (typeof data === 'object') {
+            PROG = data;
+            saveProgress(PROG);
+            updateProgressBar(); render();
+          }
+        } catch (err) { alert('Invalid file'); }
+      };
+      reader.readAsText(file);
+      e.target.value = '';
+    });
+
+    // Card buttons
+    document.getElementById('prev').onclick = () => { idx = (idx - 1 + deck.length) % deck.length; showAnswer=false; render(); };
+    document.getElementById('next').onclick = () => { idx = (idx + 1) % deck.length; showAnswer=false; render(); };
+    document.getElementById('flip').onclick = () => { showAnswer = !showAnswer; render(); };
+    document.getElementById('mark-known').onclick = () => { const id = deck[idx].id; PROG[id] = PROG[id]||{}; PROG[id].known = true; saveProgress(PROG); updateProgressBar(); };
+    document.getElementById('mark-unknown').onclick = () => { const id = deck[idx].id; PROG[id] = PROG[id]||{}; PROG[id].known = false; saveProgress(PROG); updateProgressBar(); };
+    document.getElementById('toggle-star').onclick = () => { const id = deck[idx].id; PROG[id] = PROG[id]||{}; PROG[id].star = !PROG[id].star; saveProgress(PROG); render(); updateProgressBar(); };
+
+    // Hotkeys
+    window.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'INPUT') return;
+      if (e.code === 'Space') { e.preventDefault(); document.getElementById('flip').click(); }
+      if (e.key === 'ArrowRight') document.getElementById('next').click();
+      if (e.key === 'ArrowLeft') document.getElementById('prev').click();
+      if (e.key.toLowerCase() === 'k') document.getElementById('mark-known').click();
+      if (e.key.toLowerCase() === 'x') document.getElementById('mark-unknown').click();
+      if (e.key.toLowerCase() === 's') document.getElementById('toggle-star').click();
+      if (e.key.toLowerCase() === 'f') {
+        mode = (mode === 'flash' ? 'mc' : 'flash');
+        document.querySelector(`input[name="mode"][value="${mode}"]`).checked = true;
+        render();
+      }
+    });
+
+    // Init
+    function firstLoadShuffle() {
+      // Shuffle once on load for freshness
+      deck = getFilteredDeck();
+      shuffle(deck);
+      idx = 0;
+      render();
+      updateProgressBar();
+    }
+    firstLoadShuffle();
+  </script>
+</body>
+</html>
